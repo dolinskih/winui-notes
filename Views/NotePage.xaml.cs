@@ -32,6 +32,41 @@ namespace WinUINotes.Views
             InitializeComponent();
         }
 
+        protected async override void OnNavigatingFrom(NavigatingCancelEventArgs e)
+        {
+            if (noteModel?.State == NoteState.Unsaved)
+            {
+                e.Cancel = true;
+                ContentDialog dialog = new ContentDialog();
+
+                // Remember to use XamlRoot for the ContentDialog
+                dialog.XamlRoot = this.XamlRoot;
+                dialog.Title = "Save your work?";
+                dialog.PrimaryButtonText = "Save";
+                dialog.SecondaryButtonText = "Don't Save";
+                dialog.CloseButtonText = "Cancel";
+                dialog.DefaultButton = ContentDialogButton.Primary;
+
+                ContentDialogResult result = await dialog.ShowAsync();
+
+                if (result == ContentDialogResult.Primary)
+                {
+                    await noteModel.SaveAsync();
+                    Frame.Navigate(typeof(AllNotesPage), noteModel);
+                }
+                else if (result == ContentDialogResult.Secondary)
+                {
+                    while (NoteEditor.CanUndo)
+                    {
+                        NoteEditor.Undo();
+                    }
+                    NoteEditor.Focus(FocusState.Programmatic);
+                    noteModel.State = NoteState.Saved;
+                    Frame.Navigate(typeof(AllNotesPage), noteModel);
+                }
+            }
+        }
+
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
@@ -53,10 +88,31 @@ namespace WinUINotes.Views
 
         private async void DeleteButton_Click(object sender, RoutedEventArgs e)
         {
-            await noteModel.DeleteAsync();
-            if (Frame.CanGoBack == true)
+            if (noteModel is not null)
             {
-                Frame.GoBack();
+                if (noteModel.State == NoteState.Unset)
+                {
+                    // If the note is new, doesn't have any edits, and hasn't been saved, just call GoBack.
+                    if (Frame.CanGoBack == true)
+                    {
+                        Frame.GoBack();
+                    }
+                }
+                else
+                {
+                    // If the note has been saved before, then delete it and navigate back to the AllNotesPage passing the noteModel with its Deleted state.
+                    await noteModel.DeleteAsync();
+                    Frame.Navigate(typeof(AllNotesPage), noteModel);
+                }
+            }
+        }
+
+        private async void SaveCloseButton_Click(SplitButton sender, SplitButtonClickEventArgs args)
+        {
+            if (noteModel is not null)
+            {
+                await noteModel.SaveAsync();
+                Frame.Navigate(typeof(AllNotesPage), noteModel);
             }
         }
     }

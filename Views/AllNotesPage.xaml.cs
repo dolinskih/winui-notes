@@ -33,8 +33,26 @@ namespace WinUINotes.Views
             Loaded += AllNotesPage_Loaded;
         }
 
+        protected override void OnNavigatedTo(NavigationEventArgs e)
+        {
+            if (e.Parameter is Note note)
+            {
+                if (note.State == NoteState.Deleted)
+                {
+                    notesModel.RemoveNote(note);
+                }
+                else if (!notesModel.Notes.Contains(note))
+                {
+                    notesModel.AddNote(note);
+                }
+                // This navigation should be treated like a back navigation, so clear the backstack.
+                Frame.BackStack.Clear();
+            }
+        }
+
         private async void AllNotesPage_Loaded(object sender, RoutedEventArgs e)
         {
+            Loaded -= AllNotesPage_Loaded;
             await notesModel.LoadNotesAsync();
         }
 
